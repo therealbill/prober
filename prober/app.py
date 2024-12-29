@@ -4,8 +4,9 @@ Main application class for email server probes.
 
 import threading
 import time
-from prometheus_client import Counter, start_http_server
+from prometheus_client import start_http_server
 from loguru import logger
+from .metrics import EMAIL_PROBE_SUCCESS
 from prober.probes.dns_probe import DNSMXDomainProbe, DNSMXIPProbe
 from prober.probes.connectivity_probe import (
     IPPingProbe,
@@ -34,13 +35,6 @@ class EmailProbeApp:
             config (dict): Configuration dictionary containing all required settings
         """
         self._validate_config(config)
-
-        # Initialize Prometheus metrics
-        self.probe_counter = Counter(
-            "email_probe_success_count",
-            "Count of probe successes and failures",
-            ["success", "probe"],
-        )
 
         # Create configs for unauthenticated SMTP probes
         smtp_unauth_config = {

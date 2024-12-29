@@ -9,6 +9,10 @@ ENV PYTHONFAULTHANDLER=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false
 
+#
+RUN apt update
+RUN apt install iputils-ping -y 
+
 # Install poetry
 RUN pip install "poetry==$POETRY_VERSION"
 

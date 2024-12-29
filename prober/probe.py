@@ -3,6 +3,7 @@ import threading
 import time
 from threading import Event
 from loguru import logger
+from .metrics import EMAIL_PROBE_SUCCESS
 
 
 class Probe(ABC):
@@ -51,10 +52,20 @@ class Probe(ABC):
                 logger.warning(
                     f"{self.__class__.__name__} probe check failed. Total failures: {self.total_failures}"
                 )
+                EMAIL_PROBE_SUCCESS.labels(
+                    probe=self.__class__.__name__,
+                ).set(0.0)
+            else:
+                EMAIL_PROBE_SUCCESS.labels(
+                    probe=self.__class__.__name__,
+                ).set(1.0)
             return result
         except Exception as e:
             self.total_failures += 1
             logger.error(f"{self.__class__.__name__} probe execution error: {str(e)}")
+            EMAIL_PROBE_SUCCESS.labels(
+                probe=self.__class__.__name__,
+            ).set(0.0)
             return False
 
     def _run(self):
