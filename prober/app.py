@@ -180,6 +180,11 @@ def main():
     import os
     import time
     from dotenv import load_dotenv
+    
+    with open('pyproject.toml','r') as fh:
+        pyproject_raw = fh.readlines()
+    version = next((l for l in pyproject_raw if 'version' in l))
+    logger.info(f"Welcome to Prober {version}")
 
     # Load configuration from environment
     load_dotenv()

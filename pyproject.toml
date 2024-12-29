@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "prober"
-version = "0.1.0"
+version = "0.1.1"
 description = "Email server probe system with Prometheus metrics"
 authors = ["ouoertheo <me@tomeofjamin.net>"]
 readme = "README.md"
