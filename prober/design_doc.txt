@@ -1,0 +1,62 @@
+Probes
+    Probe Class
+        Each probe will be responsible for its own polling loop
+        Will have start_probe function to initialize polling
+        All probes will have an execute function that returns true or false.
+        All probes will be responsible its config and their metric.
+        A probe will log a warning on failure.
+        A probe will track its total failures.
+        Each probe will store its own collection interval
+
+    Probe Implementations
+        DNS - No Prerequisites to run 
+            dns_mx_somain - The MX record for the domain provided in the configuration exists
+            dns_mx_ip - the targets of the MX records contain the IP in the configuration
+
+        Connectivity - No prerequisites to run
+            ip_ping - the ip address of the server is pingable
+            http_port - port 80 can be connected to. 
+            https_port - port 443 can be connected to
+            mail_port - port 25 can be connected to
+            smtp_port - port 587 can be connected to
+        
+        Security - Must Pass Connectivity first
+            https_certificate - There is a certificate bound to the hostname on port 443
+            smtp_certificate - There is a certificate bound to the hostname on port 587
+
+        Mail Send   
+            smtp_send - Secure smtp connection to the server can be initiated
+
+
+Environment Configs
+    EMAIL_SERVER_IP=192.168.1.1
+    EMAIL_SERVER_HOSTNAME=mail.example.com
+    EMAIL_MX_DOMAIN=example.com
+    EMAIL_SERVER_HTTP_PORT=80
+    EMAIL_SERVER_HTTPS_PORT=443
+    EMAIL_SERVER_SMTP_PORT=25
+    EMAIL_SERVER_SMTP_SECURE_PORT=587
+    METRICS_EXPORT_PORT=9101
+    PROBE_COLLECTION_INTERVAL=300 # Seconds
+
+Main Application Class
+    Responsible for initializing all Probes
+    Creates a threadpool the size of total probes
+    Initializes Each probe's execute function within the threadpool
+
+External interface
+    Export Prometheus Client metric:
+        counter: email_probe_success_count
+            Labels:
+                success: true|false
+                probe: mx_exists
+                    dns_mx_somain
+                    dns_mx_ip
+                    ip_ping
+                    http_port
+                    https_port
+                    mail_port
+                    smtp_port
+                    https_certificate
+                    smtp_certificate
+                    smtp_send_successful

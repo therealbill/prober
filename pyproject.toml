@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "prober"
+version = "0.1.0"
+description = "Email server probe system with Prometheus metrics"
+authors = ["ouoertheo <me@tomeofjamin.net>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+dnspython = "^2.4.2"
+prometheus-client = "^0.17.1"
+requests = "^2.31.0"
+cryptography = "^41.0.3"
+python-dotenv = "^1.0.0"
+loguru = "^0.7.3"
+
+[tool.poetry.scripts]
+email-probe = "prober.app:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
