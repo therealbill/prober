@@ -388,6 +388,21 @@ files = [
 twisted = ["twisted"]
 
 [[package]]
+name = "pybreaker"
+version = "1.4.0"
+description = "Python implementation of the Circuit Breaker pattern"
+category = "main"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "pybreaker-1.4.0-py3-none-any.whl", hash = "sha256:98b3324575293ba5e62be0098041481eda603a934c4d59857bb724ecfbea4a4c"},
+    {file = "pybreaker-1.4.0.tar.gz", hash = "sha256:82910927d504aca596b5266964eaeabf41361aff30feb31d568d3e530fcc6f2b"},
+]
+
+[package.extras]
+test = ["fakeredis", "mock", "pytest", "redis", "tornado", "types-mock", "types-redis"]
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 description = "C parser in Python"
@@ -678,4 +693,4 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b575b5cb3b6ee141bcbbc349eb2f6f7fd6f89746209e9fc0ba3a21685b045d7c"
+content-hash = "32a73af8ad59fe83e9546b96bb6cedfdc1071b1bda928b088feb029418b9bb4d"

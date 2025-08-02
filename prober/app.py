@@ -4,7 +4,9 @@ Main application class for email server probes.
 
 import threading
 import time
-from prometheus_client import start_http_server
+import json
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from prometheus_client import start_http_server, generate_latest, CONTENT_TYPE_LATEST
 from loguru import logger
 from .metrics import EMAIL_PROBE_SUCCESS
 from prober.probes.dns_probe import DNSMXDomainProbe, DNSMXIPProbe
@@ -20,6 +22,83 @@ from prober.probes.security_probe import (
     SMTPCertificateProbe,
 )
 from prober.probes.mail_probe import AuthenticatedSMTPSendProbe, UnauthenticatedSMTPProbe
+
+
+class ProberHTTPHandler(BaseHTTPRequestHandler):
+    """
+    Custom HTTP handler for metrics and health endpoints.
+    """
+    
+    def __init__(self, probes, *args, **kwargs):
+        self.probes = probes
+        super().__init__(*args, **kwargs)
+    
+    def do_GET(self):
+        """Handle GET requests for metrics and health endpoints."""
+        if self.path == '/metrics':
+            self._serve_metrics()
+        elif self.path == '/health':
+            self._serve_health()
+        else:
+            self._serve_404()
+    
+    def _serve_metrics(self):
+        """Serve Prometheus metrics."""
+        try:
+            metrics_output = generate_latest()
+            self.send_response(200)
+            self.send_header('Content-Type', CONTENT_TYPE_LATEST)
+            self.end_headers()
+            self.wfile.write(metrics_output)
+        except Exception as e:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(f"Error generating metrics: {str(e)}".encode())
+    
+    def _serve_health(self):
+        """Serve health status."""
+        try:
+            healthy_probes = sum(1 for probe in self.probes if probe.is_healthy())
+            total_probes = len(self.probes)
+            health_percentage = healthy_probes / total_probes if total_probes > 0 else 0
+            
+            is_healthy = health_percentage >= 0.5  # 50% threshold
+            
+            response = {
+                "status": "healthy" if is_healthy else "unhealthy",
+                "healthy_probes": healthy_probes,
+                "total_probes": total_probes,
+                "health_percentage": round(health_percentage, 2)
+            }
+            
+            status_code = 200 if is_healthy else 503
+            self.send_response(status_code)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+        except Exception as e:
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(f"Error generating health status: {str(e)}".encode())
+    
+    def _serve_404(self):
+        """Serve 404 response."""
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"Not Found")
+    
+    def log_message(self, format, *args):
+        """Override to use loguru instead of default logging."""
+        logger.debug(f"HTTP {format % args}")
+
+
+def create_handler_class(probes):
+    """Create a handler class with probes bound to it."""
+    class BoundHandler(ProberHTTPHandler):
+        def __init__(self, *args, **kwargs):
+            self.probes = probes
+            BaseHTTPRequestHandler.__init__(self, *args, **kwargs)
+    return BoundHandler
 
 
 class EmailProbeApp:
@@ -77,6 +156,8 @@ class EmailProbeApp:
 
         self.metrics_port = config["metrics_export_port"]
         self._running = False
+        self._http_server = None
+        self._http_thread = None
 
     def _validate_config(self, config: dict):
         """
@@ -101,6 +182,8 @@ class EmailProbeApp:
             "smtp_password",
             "metrics_export_port",
             "expected_ip",
+            "circuit_breaker_failure_threshold",
+            "circuit_breaker_recovery_timeout",
         }
 
         missing = required_fields - set(config.keys())
@@ -110,15 +193,19 @@ class EmailProbeApp:
     def start(self):
         """
         Start the application:
-        1. Start Prometheus metrics server
+        1. Start custom HTTP server for metrics and health
         2. Start all probes
         """
         try:
             self._running = True
-            # Start Prometheus metrics server
-            start_http_server(self.metrics_port)
+            
+            # Start custom HTTP server for metrics and health endpoints
+            handler_class = create_handler_class(self.probes)
+            self._http_server = HTTPServer(('', self.metrics_port), handler_class)
+            self._http_thread = threading.Thread(target=self._http_server.serve_forever, daemon=True)
+            self._http_thread.start()
             logger.info(
-                f"Started Prometheus metrics server on port {self.metrics_port}"
+                f"Started HTTP server on port {self.metrics_port} (metrics: /metrics, health: /health)"
             )
 
             # Start all probes
@@ -133,15 +220,23 @@ class EmailProbeApp:
 
     def stop(self):
         """
-        Stop all probes gracefully with a timeout.
+        Stop all probes and HTTP server gracefully with a timeout.
         """
         if not self._running:
             return
             
         self._running = False
-        logger.info("Stopping all probes...")
+        logger.info("Stopping application...")
+        
+        # Stop HTTP server
+        if self._http_server:
+            logger.info("Stopping HTTP server...")
+            self._http_server.shutdown()
+            if self._http_thread:
+                self._http_thread.join(timeout=5)
         
         # Stop all probes concurrently
+        logger.info("Stopping all probes...")
         stop_threads: list[threading.Thread] = []
         for probe in self.probes:
             thread = threading.Thread(
@@ -161,7 +256,7 @@ class EmailProbeApp:
                 logger.warning("Some probes did not stop gracefully within timeout")
                 break
                 
-        logger.info("All probes stopped")
+        logger.info("Application stopped")
 
     def is_running(self):
         """

@@ -14,7 +14,11 @@ def test_probe_is_abstract():
 
 def test_probe_initialization():
     """Test probe initialization with config"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class TestProbe(Probe):
         def _execute_check(self) -> bool:
@@ -37,7 +41,11 @@ def test_probe_execute_abstract():
 
 def test_probe_failure_tracking():
     """Test that failures are tracked correctly"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class FailingProbe(Probe):
         def _execute_check(self) -> bool:
@@ -51,7 +59,11 @@ def test_probe_failure_tracking():
 
 def test_probe_success_no_failure_increment():
     """Test that successful executions don't increment failure count"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class SuccessProbe(Probe):
         def _execute_check(self) -> bool:
@@ -66,7 +78,11 @@ def test_probe_success_no_failure_increment():
 @patch("prober.probe.logger")
 def test_probe_logs_failure(mock_logger):
     """Test that failures are logged"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class FailingProbe(Probe):
         def _execute_check(self) -> bool:
@@ -79,7 +95,11 @@ def test_probe_logs_failure(mock_logger):
 
 def test_probe_start_creates_thread():
     """Test that start_probe creates a thread"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class TestProbe(Probe):
         def _execute_check(self) -> bool:
@@ -99,7 +119,11 @@ def test_probe_start_creates_thread():
 
 def test_probe_respects_collection_interval():
     """Test that probe respects collection interval"""
-    config = {"collection_interval": 0.1}  # Small interval for testing
+    config = {
+        "collection_interval": 0.1,  # Small interval for testing
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
     execute_count = 0
 
     class TestProbe(Probe):
@@ -122,7 +146,11 @@ def test_probe_respects_collection_interval():
 
 def test_probe_exception_handling():
     """Test that exceptions in execute are caught and logged"""
-    config = {"collection_interval": 300}
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+    }
 
     class ErrorProbe(Probe):
         def _execute_check(self) -> bool:

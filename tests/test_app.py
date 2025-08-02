@@ -34,6 +34,8 @@ def app_config():
         "smtp_username": "test@example.com",
         "smtp_password": "password123",
         "metrics_export_port": 9101,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
     }
 
 
@@ -66,22 +68,30 @@ class TestEmailProbeApp:
         with pytest.raises(ValueError):
             EmailProbeApp({})
 
-    @patch("prober.app.start_http_server")  # Updated patch path
-    def test_metrics_server_start(self, mock_start_server, app_config):
+    @patch("prober.app.HTTPServer")
+    def test_http_server_start(self, mock_http_server, app_config):
         app = EmailProbeApp(app_config)
         app.start()
 
-        mock_start_server.assert_called_once_with(app_config["metrics_export_port"])
+        # Verify HTTPServer was created with correct port
+        mock_http_server.assert_called_once()
+        args = mock_http_server.call_args[0]
+        assert args[0] == ('', app_config["metrics_export_port"])  # Server address
+        
+        app.stop()
 
-    def test_probe_counter_initialization(self, app_config):
+    def test_probe_initialization(self, app_config):
+        """Test that probes are properly initialized with circuit breakers."""
         app = EmailProbeApp(app_config)
 
-        assert isinstance(app.probe_counter, Counter)
-        assert app.probe_counter._name == "email_probe_success_count"
-        assert "success" in app.probe_counter._labelnames
-        assert "probe" in app.probe_counter._labelnames
+        # Verify all probes have circuit breakers
+        for probe in app.probes:
+            assert hasattr(probe, 'circuit_breaker')
+            assert probe.circuit_breaker.fail_max == app_config["circuit_breaker_failure_threshold"]
+            assert probe.circuit_breaker.reset_timeout == app_config["circuit_breaker_recovery_timeout"]
 
-    def test_start_all_probes(self, app_config):
+    @patch("prober.app.HTTPServer")
+    def test_start_all_probes(self, mock_http_server, app_config):
         app = EmailProbeApp(app_config)
 
         # Mock all probe start methods
@@ -93,8 +103,11 @@ class TestEmailProbeApp:
         # Verify all probes were started
         for probe in app.probes:
             probe.start_probe.assert_called_once()
+            
+        app.stop()
 
-    def test_stop_all_probes(self, app_config):
+    @patch("prober.app.HTTPServer")
+    def test_stop_all_probes(self, mock_http_server, app_config):
         app = EmailProbeApp(app_config)
 
         # Mock all probe stop methods
@@ -103,7 +116,6 @@ class TestEmailProbeApp:
             
         app.start()
         app.stop()
-        
 
         # Verify all probes were stopped
         for probe in app.probes:

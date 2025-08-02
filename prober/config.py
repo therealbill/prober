@@ -86,6 +86,22 @@ class ProberConfig(BaseSettings):
         validation_alias='METRICS_EXPORT_PORT'
     )
     
+    # Circuit breaker configuration
+    circuit_breaker_failure_threshold: int = Field(
+        default=5,
+        description="Number of failures before circuit breaker opens",
+        ge=1,
+        le=50,
+        validation_alias='CIRCUIT_BREAKER_FAILURE_THRESHOLD'
+    )
+    circuit_breaker_recovery_timeout: int = Field(
+        default=60,
+        description="Seconds to wait before attempting recovery",
+        ge=10,
+        le=3600,
+        validation_alias='CIRCUIT_BREAKER_RECOVERY_TIMEOUT'
+    )
+    
     # Validation methods
     @field_validator('server_ip')
     @classmethod

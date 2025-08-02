@@ -3,6 +3,7 @@ import threading
 import time
 from threading import Event
 from loguru import logger
+import pybreaker
 from .metrics import EMAIL_PROBE_SUCCESS
 
 
@@ -26,6 +27,13 @@ class Probe(ABC):
         self._running = False
         self._thread = None
         self._stop_event = Event()
+        
+        # Initialize circuit breaker
+        self.circuit_breaker = pybreaker.CircuitBreaker(
+            fail_max=config.get("circuit_breaker_failure_threshold", 5),
+            reset_timeout=config.get("circuit_breaker_recovery_timeout", 60),
+            name=f"{self.__class__.__name__}_breaker"
+        )
 
     @abstractmethod
     def _execute_check(self) -> bool:
@@ -40,13 +48,14 @@ class Probe(ABC):
 
     def execute(self) -> bool:
         """
-        Execute the probe check and handle failures/logging.
+        Execute the probe check with circuit breaker protection.
 
         Returns:
             bool: True if check passes, False otherwise
         """
         try:
-            result = self._execute_check()
+            # Use circuit breaker to wrap the actual check
+            result = self.circuit_breaker(self._execute_check)()
             if not result:
                 self.total_failures += 1
                 logger.warning(
@@ -60,6 +69,13 @@ class Probe(ABC):
                     probe=self.__class__.__name__,
                 ).set(1.0)
             return result
+        except pybreaker.CircuitBreakerError:
+            # Circuit breaker is open, probe is temporarily disabled
+            logger.warning(f"{self.__class__.__name__} circuit breaker is open, skipping probe")
+            EMAIL_PROBE_SUCCESS.labels(
+                probe=self.__class__.__name__,
+            ).set(0.0)
+            return False
         except Exception as e:
             self.total_failures += 1
             logger.error(f"{self.__class__.__name__} probe execution error: {str(e)}")
@@ -108,3 +124,12 @@ class Probe(ABC):
             self._thread = None
             
         self._stop_event.clear()  # Reset the event for potential future use
+    
+    def is_healthy(self) -> bool:
+        """
+        Check if probe is currently healthy (circuit breaker closed and recent success).
+        
+        Returns:
+            bool: True if probe is healthy, False otherwise
+        """
+        return self.circuit_breaker.current_state == 'closed'
