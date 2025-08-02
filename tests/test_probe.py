@@ -24,6 +24,9 @@ def test_probe_initialization():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):
@@ -58,6 +61,9 @@ def test_probe_failure_tracking():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class FailingProbe(Probe):
@@ -83,6 +89,9 @@ def test_probe_success_no_failure_increment():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class SuccessProbe(Probe):
@@ -109,6 +118,9 @@ def test_probe_logs_failure(mock_logger):
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class FailingProbe(Probe):
@@ -132,6 +144,9 @@ def test_probe_start_creates_thread():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):
@@ -162,6 +177,9 @@ def test_probe_respects_collection_interval():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
     execute_count = 0
 
@@ -195,6 +213,9 @@ def test_probe_exception_handling():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class ErrorProbe(Probe):
@@ -221,6 +242,9 @@ def test_consecutive_failure_reset_on_success():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     call_count = 0
@@ -302,6 +326,9 @@ def test_backoff_max_interval_cap():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):
@@ -328,6 +355,9 @@ def test_backoff_minimum_interval():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):
@@ -354,6 +384,9 @@ def test_error_categorization():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):
@@ -423,6 +456,9 @@ def test_dns_error_categorization():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
     class TestProbe(Probe):

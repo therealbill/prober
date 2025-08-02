@@ -42,6 +42,9 @@ def app_config():
         "backoff_max_failures": 5,
         "enable_error_categorization": True,
         "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
     }
 
 
@@ -126,3 +129,73 @@ class TestEmailProbeApp:
         # Verify all probes were stopped
         for probe in app.probes:
             probe.stop_probe.assert_called_once()
+
+
+def test_resource_monitoring():
+    """Test that resource monitoring is initialized correctly"""
+    config = {
+        "collection_interval": 300,
+        "server_ip": "192.168.1.1",
+        "server_hostname": "mail.example.com",
+        "mx_domain": "example.com",
+        "expected_ip": "192.168.1.1",
+        "http_port": 80,
+        "https_port": 443,
+        "mail_port": 25,
+        "smtp_port": 587,
+        "smtp_username": "test@example.com",
+        "smtp_password": "password123",
+        "metrics_export_port": 9101,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
+        "resource_check_enabled": True,
+        "resource_memory_warning_mb": 100,  # Low threshold for testing
+        "resource_thread_warning_count": 10,  # Low threshold for testing
+    }
+    
+    app = EmailProbeApp(config)
+    
+    # Check that resource config is stored
+    assert app.config["resource_check_enabled"] is True
+    assert app.config["resource_memory_warning_mb"] == 100
+    assert app.config["resource_thread_warning_count"] == 10
+
+
+def test_resource_monitoring_disabled():
+    """Test that resource monitoring can be disabled"""
+    config = {
+        "collection_interval": 300,
+        "server_ip": "192.168.1.1",
+        "server_hostname": "mail.example.com",
+        "mx_domain": "example.com",
+        "expected_ip": "192.168.1.1",
+        "http_port": 80,
+        "https_port": 443,
+        "mail_port": 25,
+        "smtp_port": 587,
+        "smtp_username": "test@example.com",
+        "smtp_password": "password123",
+        "metrics_export_port": 9101,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
+        "resource_check_enabled": False,  # Disabled
+        "resource_memory_warning_mb": 256,
+        "resource_thread_warning_count": 50,
+    }
+    
+    app = EmailProbeApp(config)
+    
+    # Check that resource monitoring is disabled
+    assert app.config["resource_check_enabled"] is False

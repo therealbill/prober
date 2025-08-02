@@ -144,6 +144,27 @@ class ProberConfig(BaseSettings):
         validation_alias='ENABLE_ENHANCED_LOGGING'
     )
     
+    # Resource monitoring configuration
+    resource_check_enabled: bool = Field(
+        default=True,
+        description="Enable basic resource monitoring and warnings",
+        validation_alias='RESOURCE_CHECK_ENABLED'
+    )
+    resource_memory_warning_mb: int = Field(
+        default=256,
+        description="Memory usage warning threshold in MB",
+        ge=64,
+        le=2048,
+        validation_alias='RESOURCE_MEMORY_WARNING_MB'
+    )
+    resource_thread_warning_count: int = Field(
+        default=50,
+        description="Thread count warning threshold",
+        ge=10,
+        le=200,
+        validation_alias='RESOURCE_THREAD_WARNING_COUNT'
+    )
+    
     # Validation methods
     @field_validator('server_ip')
     @classmethod
