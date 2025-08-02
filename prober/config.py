@@ -102,6 +102,36 @@ class ProberConfig(BaseSettings):
         validation_alias='CIRCUIT_BREAKER_RECOVERY_TIMEOUT'
     )
     
+    # Exponential backoff configuration
+    backoff_base_interval: int = Field(
+        default=300,
+        description="Base interval for exponential backoff (seconds)",
+        ge=30,
+        le=3600,
+        validation_alias='BACKOFF_BASE_INTERVAL'
+    )
+    backoff_max_interval: int = Field(
+        default=3600,
+        description="Maximum interval for exponential backoff (seconds)",
+        ge=300,
+        le=86400,  # Max 24 hours
+        validation_alias='BACKOFF_MAX_INTERVAL'
+    )
+    backoff_multiplier: float = Field(
+        default=2.0,
+        description="Multiplier for exponential backoff",
+        ge=1.1,
+        le=5.0,
+        validation_alias='BACKOFF_MULTIPLIER'
+    )
+    backoff_max_failures: int = Field(
+        default=5,
+        description="Maximum consecutive failures before capping backoff",
+        ge=1,
+        le=20,
+        validation_alias='BACKOFF_MAX_FAILURES'
+    )
+    
     # Validation methods
     @field_validator('server_ip')
     @classmethod

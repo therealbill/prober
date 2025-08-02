@@ -18,6 +18,10 @@ def test_probe_initialization():
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class TestProbe(Probe):
@@ -27,6 +31,7 @@ def test_probe_initialization():
     probe = TestProbe(config)
     assert probe.collection_interval == 300
     assert probe.total_failures == 0
+    assert probe.consecutive_failures == 0
 
 
 def test_probe_execute_abstract():
@@ -45,6 +50,10 @@ def test_probe_failure_tracking():
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class FailingProbe(Probe):
@@ -55,6 +64,7 @@ def test_probe_failure_tracking():
     result = probe.execute()
     assert result is False
     assert probe.total_failures == 1
+    assert probe.consecutive_failures == 1
 
 
 def test_probe_success_no_failure_increment():
@@ -63,6 +73,10 @@ def test_probe_success_no_failure_increment():
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class SuccessProbe(Probe):
@@ -73,6 +87,7 @@ def test_probe_success_no_failure_increment():
     result = probe.execute()
     assert result is True
     assert probe.total_failures == 0
+    assert probe.consecutive_failures == 0
 
 
 @patch("prober.probe.logger")
@@ -82,6 +97,10 @@ def test_probe_logs_failure(mock_logger):
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class FailingProbe(Probe):
@@ -99,6 +118,10 @@ def test_probe_start_creates_thread():
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class TestProbe(Probe):
@@ -123,6 +146,10 @@ def test_probe_respects_collection_interval():
         "collection_interval": 0.1,  # Small interval for testing
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 0.1,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
     execute_count = 0
 
@@ -150,6 +177,10 @@ def test_probe_exception_handling():
         "collection_interval": 300,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
     class ErrorProbe(Probe):
@@ -162,3 +193,130 @@ def test_probe_exception_handling():
         assert result is False
         assert probe.total_failures == 1
         mock_logger.error.assert_called_once()
+
+
+def test_consecutive_failure_reset_on_success():
+    """Test that consecutive failures are reset on success"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+    }
+
+    call_count = 0
+    class AlternatingProbe(Probe):
+        def _execute_check(self) -> bool:
+            nonlocal call_count
+            call_count += 1
+            return call_count > 2  # First 2 calls fail, then succeed
+
+    probe = AlternatingProbe(config)
+    
+    # First failure
+    result = probe.execute()
+    assert result is False
+    assert probe.consecutive_failures == 1
+    
+    # Second failure
+    result = probe.execute()
+    assert result is False
+    assert probe.consecutive_failures == 2
+    
+    # Success - should reset consecutive failures
+    result = probe.execute()
+    assert result is True
+    assert probe.consecutive_failures == 0
+
+
+def test_backoff_calculation():
+    """Test exponential backoff calculation"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 100,
+        "backoff_max_interval": 1000,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 3,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # No failures - should return normal interval
+    assert probe._calculate_backoff_interval() == 300
+    
+    # 1 failure: 100 * 2^1 = 200 (plus jitter)
+    probe.consecutive_failures = 1
+    interval = probe._calculate_backoff_interval()
+    assert 160 <= interval <= 240  # 200 ± 20%
+    
+    # 2 failures: 100 * 2^2 = 400 (plus jitter)
+    probe.consecutive_failures = 2
+    interval = probe._calculate_backoff_interval()
+    assert 320 <= interval <= 480  # 400 ± 20%
+    
+    # 3 failures: 100 * 2^3 = 800 (plus jitter)
+    probe.consecutive_failures = 3
+    interval = probe._calculate_backoff_interval()
+    assert 640 <= interval <= 960  # 800 ± 20%
+    
+    # 5 failures - should cap at max_failures (3)
+    probe.consecutive_failures = 5
+    interval = probe._calculate_backoff_interval()
+    assert 640 <= interval <= 960  # Still 800 ± 20%
+
+
+def test_backoff_max_interval_cap():
+    """Test that backoff is capped at max_interval"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 100,
+        "backoff_max_interval": 500,  # Lower max
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # 4 failures would be 100 * 2^4 = 1600, but should cap at 500
+    probe.consecutive_failures = 4
+    interval = probe._calculate_backoff_interval()
+    assert 400 <= interval <= 600  # 500 ± 20%
+
+
+def test_backoff_minimum_interval():
+    """Test that backoff respects minimum interval of 30 seconds"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 10,  # Very low base
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 1.1,  # Small multiplier
+        "backoff_max_failures": 5,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # Even with 1 failure, should not go below 30 seconds
+    probe.consecutive_failures = 1
+    interval = probe._calculate_backoff_interval()
+    assert interval >= 30.0

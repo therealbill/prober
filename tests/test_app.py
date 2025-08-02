@@ -36,6 +36,10 @@ def app_config():
         "metrics_export_port": 9101,
         "circuit_breaker_failure_threshold": 5,
         "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
     }
 
 
