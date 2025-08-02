@@ -177,32 +177,22 @@ def main():
     """
     Main entry point for the email probe system.
     """
-    import os
     import time
-    from dotenv import load_dotenv
+    from .config import load_config, config_to_dict
     
     with open('pyproject.toml','r') as fh:
         pyproject_raw = fh.readlines()
     version = next((l for l in pyproject_raw if 'version' in l))
     logger.info(f"Welcome to Prober {version}")
 
-    # Load configuration from environment
-    load_dotenv()
-
-    config = {
-        "collection_interval": int(os.getenv("PROBE_COLLECTION_INTERVAL", "300")),
-        "server_ip": os.getenv("EMAIL_SERVER_IP"),
-        "server_hostname": os.getenv("EMAIL_SERVER_HOSTNAME"),
-        "mx_domain": os.getenv("EMAIL_MX_DOMAIN"),
-        "http_port": int(os.getenv("EMAIL_SERVER_HTTP_PORT", "80")),
-        "https_port": int(os.getenv("EMAIL_SERVER_HTTPS_PORT", "443")),
-        "mail_port": int(os.getenv("EMAIL_SERVER_SMTP_PORT", "25")),
-        "smtp_port": int(os.getenv("EMAIL_SERVER_SMTP_SECURE_PORT", "587")),
-        "smtp_username": os.getenv("EMAIL_SMTP_USERNAME"),
-        "smtp_password": os.getenv("EMAIL_SMTP_PASSWORD"),
-        "metrics_export_port": int(os.getenv("METRICS_EXPORT_PORT", "9101")),
-        "expected_ip": os.getenv("EMAIL_EXPECTED_MX_IP"),
-    }
+    # Load and validate configuration
+    try:
+        prober_config = load_config()
+        config = config_to_dict(prober_config)
+        logger.info("Configuration loaded and validated successfully")
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        exit(1)
 
     try:
         app = EmailProbeApp(config)
