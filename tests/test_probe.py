@@ -22,6 +22,8 @@ def test_probe_initialization():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class TestProbe(Probe):
@@ -54,6 +56,8 @@ def test_probe_failure_tracking():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class FailingProbe(Probe):
@@ -77,6 +81,8 @@ def test_probe_success_no_failure_increment():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class SuccessProbe(Probe):
@@ -101,6 +107,8 @@ def test_probe_logs_failure(mock_logger):
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class FailingProbe(Probe):
@@ -122,6 +130,8 @@ def test_probe_start_creates_thread():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class TestProbe(Probe):
@@ -150,6 +160,8 @@ def test_probe_respects_collection_interval():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
     execute_count = 0
 
@@ -181,6 +193,8 @@ def test_probe_exception_handling():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class ErrorProbe(Probe):
@@ -205,6 +219,8 @@ def test_consecutive_failure_reset_on_success():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     call_count = 0
@@ -284,6 +300,8 @@ def test_backoff_max_interval_cap():
         "backoff_max_interval": 500,  # Lower max
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class TestProbe(Probe):
@@ -308,6 +326,8 @@ def test_backoff_minimum_interval():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 1.1,  # Small multiplier
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
     class TestProbe(Probe):
@@ -320,3 +340,98 @@ def test_backoff_minimum_interval():
     probe.consecutive_failures = 1
     interval = probe._calculate_backoff_interval()
     assert interval >= 30.0
+
+
+def test_error_categorization():
+    """Test error categorization functionality"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # Test network error categorization
+    import socket
+    network_error = socket.error("Connection refused")
+    assert probe._categorize_error(network_error) == "network"
+    
+    # Test timeout error categorization
+    timeout_error = socket.timeout("Operation timed out")
+    assert probe._categorize_error(timeout_error) == "timeout"
+    
+    # Test SSL error categorization
+    import ssl
+    ssl_error = ssl.SSLError("Certificate verification failed")
+    assert probe._categorize_error(ssl_error) == "cert"
+    
+    # Test authentication error categorization
+    auth_error = Exception("Authentication failed")
+    assert probe._categorize_error(auth_error) == "auth"
+    
+    # Test unknown error categorization
+    unknown_error = ValueError("Some random error")
+    assert probe._categorize_error(unknown_error) == "unknown"
+
+
+def test_error_categorization_disabled():
+    """Test that error categorization can be disabled"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+        "enable_error_categorization": False,
+        "enable_enhanced_logging": True,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # Should return "unknown" when categorization is disabled
+    import socket
+    network_error = socket.error("Connection refused")
+    assert probe._categorize_error(network_error) == "unknown"
+
+
+def test_dns_error_categorization():
+    """Test DNS error categorization"""
+    config = {
+        "collection_interval": 300,
+        "circuit_breaker_failure_threshold": 5,
+        "circuit_breaker_recovery_timeout": 60,
+        "backoff_base_interval": 300,
+        "backoff_max_interval": 3600,
+        "backoff_multiplier": 2.0,
+        "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
+    }
+
+    class TestProbe(Probe):
+        def _execute_check(self) -> bool:
+            return True
+
+    probe = TestProbe(config)
+    
+    # Test DNS error categorization
+    import dns.exception
+    dns_error = dns.exception.DNSException("DNS lookup failed")
+    assert probe._categorize_error(dns_error) == "dns"

@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 import threading
 import time
 import random
+import socket
+import ssl
+import dns.exception
 from threading import Event
 from loguru import logger
 import pybreaker
@@ -35,6 +38,10 @@ class Probe(ABC):
         self.backoff_max_interval = config.get("backoff_max_interval", 3600)
         self.backoff_multiplier = config.get("backoff_multiplier", 2.0)
         self.backoff_max_failures = config.get("backoff_max_failures", 5)
+        
+        # Store error categorization configuration
+        self.enable_error_categorization = config.get("enable_error_categorization", True)
+        self.enable_enhanced_logging = config.get("enable_enhanced_logging", True)
         
         # Initialize circuit breaker
         self.circuit_breaker = pybreaker.CircuitBreaker(
@@ -71,6 +78,42 @@ class Probe(ABC):
         # Ensure minimum interval of 30 seconds
         return max(jittered_interval, 30.0)
 
+    def _categorize_error(self, exception: Exception) -> str:
+        """
+        Categorize an exception into a simple error type.
+        
+        Args:
+            exception: The exception to categorize
+            
+        Returns:
+            str: Error category (network, dns, auth, cert, timeout, unknown)
+        """
+        if not self.enable_error_categorization:
+            return "unknown"
+            
+        # Timeout errors (check first)
+        if isinstance(exception, socket.timeout) or "timeout" in str(exception).lower():
+            return "timeout"
+        
+        # SSL/Certificate errors (check before network errors since SSLError is a subclass of OSError)
+        if isinstance(exception, (ssl.SSLError, ssl.CertificateError)):
+            return "cert"
+        
+        # DNS-related errors
+        if isinstance(exception, (dns.exception.DNSException,)):
+            return "dns"
+        
+        # Network-related errors (check last among OSError subclasses)
+        if isinstance(exception, (socket.error, ConnectionError, OSError)):
+            return "network"
+        
+        # Authentication errors (common patterns)
+        error_str = str(exception).lower()
+        if any(auth_term in error_str for auth_term in ["auth", "login", "credential", "password", "username"]):
+            return "auth"
+            
+        return "unknown"
+
     @abstractmethod
     def _execute_check(self) -> bool:
         """
@@ -84,43 +127,95 @@ class Probe(ABC):
 
     def execute(self) -> bool:
         """
-        Execute the probe check with circuit breaker protection.
+        Execute the probe check with circuit breaker protection and error categorization.
 
         Returns:
             bool: True if check passes, False otherwise
         """
+        start_time = time.time()
+        error_type = "none"
+        
         try:
             # Use circuit breaker to wrap the actual check
             result = self.circuit_breaker(self._execute_check)()
+            execution_time = time.time() - start_time
+            
             if not result:
                 self.total_failures += 1
                 self.consecutive_failures += 1
-                logger.warning(
-                    f"{self.__class__.__name__} probe check failed. Total failures: {self.total_failures}, Consecutive: {self.consecutive_failures}"
-                )
+                error_type = "check_failed"
+                
+                if self.enable_enhanced_logging:
+                    logger.warning(
+                        f"{self.__class__.__name__} probe check failed. "
+                        f"Total failures: {self.total_failures}, "
+                        f"Consecutive: {self.consecutive_failures}, "
+                        f"Execution time: {execution_time:.2f}s"
+                    )
+                else:
+                    logger.warning(
+                        f"{self.__class__.__name__} probe check failed. Total failures: {self.total_failures}, Consecutive: {self.consecutive_failures}"
+                    )
+                
                 EMAIL_PROBE_SUCCESS.labels(
                     probe=self.__class__.__name__,
+                    error_type=error_type if self.enable_error_categorization else "unknown"
                 ).set(0.0)
             else:
                 # Reset consecutive failures on success
                 self.consecutive_failures = 0
+                
+                if self.enable_enhanced_logging:
+                    logger.info(
+                        f"{self.__class__.__name__} probe check succeeded. "
+                        f"Execution time: {execution_time:.2f}s"
+                    )
+                
                 EMAIL_PROBE_SUCCESS.labels(
                     probe=self.__class__.__name__,
+                    error_type="none"
                 ).set(1.0)
             return result
+            
         except pybreaker.CircuitBreakerError:
             # Circuit breaker is open, probe is temporarily disabled
-            logger.warning(f"{self.__class__.__name__} circuit breaker is open, skipping probe")
+            execution_time = time.time() - start_time
+            error_type = "circuit_breaker"
+            
+            if self.enable_enhanced_logging:
+                logger.warning(
+                    f"{self.__class__.__name__} circuit breaker is open, skipping probe. "
+                    f"Execution time: {execution_time:.2f}s"
+                )
+            else:
+                logger.warning(f"{self.__class__.__name__} circuit breaker is open, skipping probe")
+            
             EMAIL_PROBE_SUCCESS.labels(
                 probe=self.__class__.__name__,
+                error_type=error_type if self.enable_error_categorization else "unknown"
             ).set(0.0)
             return False
+            
         except Exception as e:
             self.total_failures += 1
             self.consecutive_failures += 1
-            logger.error(f"{self.__class__.__name__} probe execution error: {str(e)}")
+            execution_time = time.time() - start_time
+            error_type = self._categorize_error(e)
+            
+            if self.enable_enhanced_logging:
+                logger.error(
+                    f"{self.__class__.__name__} probe execution error: {str(e)}. "
+                    f"Error type: {error_type}, "
+                    f"Total failures: {self.total_failures}, "
+                    f"Consecutive: {self.consecutive_failures}, "
+                    f"Execution time: {execution_time:.2f}s"
+                )
+            else:
+                logger.error(f"{self.__class__.__name__} probe execution error: {str(e)}")
+            
             EMAIL_PROBE_SUCCESS.labels(
                 probe=self.__class__.__name__,
+                error_type=error_type if self.enable_error_categorization else "unknown"
             ).set(0.0)
             return False
 

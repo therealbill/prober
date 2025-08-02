@@ -153,52 +153,53 @@ Add basic exponential backoff with jitter to prevent service overload during fai
 
 ---
 
-## Phase 4: Categorized Error Handling System
-**Status**: Not Started  
-**Priority**: Medium - Improves alerting intelligence  
-**Estimated Effort**: 3 days
+## Phase 4: Simple Error Categorization and Enhanced Observability
+**Status**: ✅ Completed  
+**Priority**: Medium - Improves operational visibility  
+**Estimated Effort**: 1 day (completed)
 
 ### Objective
-Implement intelligent error categorization with type-specific handling strategies
+Add basic error categorization and enhanced logging for better operational insights
 
-### Implementation Tasks
-1. **Create error classification system**
-   - [ ] Add `prober/errors.py` with exception hierarchy
-   - [ ] Define error categories: `NetworkError`, `AuthenticationError`, `ConfigurationError`, `DNSError`, `CertificateError`
-   - [ ] Create `ErrorClassifier` to categorize standard exceptions
+### Implementation Tasks (Completed)
+1. **Add simple error categorization**
+   - [x] Create basic error type detection in `Probe.execute()`
+   - [x] Categorize common exceptions: `network`, `dns`, `auth`, `cert`, `timeout`, `check_failed`, `circuit_breaker`, `unknown`
+   - [x] Use string-based categories (no complex hierarchy)
 
-2. **Enhance probe error handling**
-   - [ ] Modify each probe's `_execute_check()` to raise categorized exceptions
-   - [ ] Update `Probe.execute()` to handle different error types appropriately
-   - [ ] Add error category to Prometheus metrics labels
+2. **Enhance existing metrics**
+   - [x] Add `error_type` label to existing `EMAIL_PROBE_SUCCESS` metric
+   - [x] Maintain backward compatibility with existing metrics
+   - [x] Add error type to failure logging
 
-3. **Implement category-specific retry policies**
-   - [ ] Network errors: aggressive retry with backoff
-   - [ ] Authentication errors: minimal retry, escalate quickly
-   - [ ] Configuration errors: no retry, immediate alert
-   - [ ] DNS errors: moderate retry with longer intervals
-   - [ ] Certificate errors: daily retry only
+3. **Improve structured logging**
+   - [x] Add error category to log messages
+   - [x] Include probe context in error logs
+   - [x] Add timing information to logs
 
-4. **Add enhanced alerting thresholds**
-   - [ ] Configuration for category-specific failure thresholds
-   - [ ] Different alerting channels per error category
-   - [ ] Escalation rules based on error persistence
-
-5. **Logging and observability improvements**
-   - [ ] Structured logging with error categories
-   - [ ] Add error category distribution metrics
-   - [ ] Create dashboard templates for error analysis
+4. **Optional error type configuration**
+   - [x] Add basic error categorization settings to config
+   - [x] Allow disabling categorization if needed
+   - [x] Simple on/off toggle for enhanced logging
 
 ### Configuration Options Added
-- Error category retry policies
-- Category-specific failure thresholds
-- Alerting configuration per category
+- `ENABLE_ERROR_CATEGORIZATION=true` (optional feature toggle)
+- `ENABLE_ENHANCED_LOGGING=true` (detailed logging toggle)
 
 ### Files Modified/Created
-- `prober/errors.py` (new)
-- `prober/probe.py` (modified)
-- All probe files in `prober/probes/` (modified)
-- `prober/metrics.py` (modified)
+- `prober/config.py` (modified - added error categorization configuration)
+- `prober/probe.py` (modified - added error categorization and enhanced logging)
+- `prober/metrics.py` (modified - added error_type label to metrics)
+- `tests/test_probe.py` (modified - added comprehensive error categorization tests)
+- `tests/test_app.py` (modified - updated test fixtures for error categorization config)
+
+### Key Features Added
+- **Smart error categorization**: Detects network, DNS, SSL, authentication, timeout, and circuit breaker errors
+- **Enhanced metrics**: `error_type` label provides better observability without breaking existing dashboards
+- **Structured logging**: Execution timing, error context, and failure counts in log messages
+- **Optional features**: Can disable categorization or enhanced logging if needed
+- **Backward compatibility**: Existing metrics and logging continue to work unchanged
+- **Comprehensive testing**: Full test coverage for error categorization logic and edge cases
 
 ---
 
@@ -263,7 +264,7 @@ Implement comprehensive resource management and graceful degradation under stres
 - [x] Phase 1: Configuration Validation with Pydantic (Completed)
 - [x] Phase 2: Basic Circuit Breaker and Health Endpoint (Completed)
 - [x] Phase 3: Simple Exponential Backoff and Jitter (Completed)
-- [ ] Phase 4: Categorized Error Handling System
+- [x] Phase 4: Simple Error Categorization and Enhanced Observability (Completed)
 - [ ] Phase 5: Resource Management and Graceful Degradation
 
 ### Notes
@@ -364,6 +365,14 @@ The following features were originally planned for earlier phases but moved to f
 - **Complex testing strategy**: Integration tests, multiprocess behavior testing
 - **Comprehensive failure categorization**: Different backoff strategies per error type
 
+### Advanced Error Handling Features (Originally in Phase 4)
+- **Complex error hierarchy**: Full exception class hierarchy with `ErrorClassifier`
+- **Category-specific retry policies**: Different retry logic per error type (network, auth, DNS, cert)
+- **Enhanced alerting system**: Multiple alerting channels and escalation rules
+- **Dashboard templates**: Visualization components for error analysis
+- **Extensive probe modifications**: Custom exception handling in every probe type
+- **Advanced metrics**: Separate error category distribution metrics
+
 ### Implementation Priority
 These enhancements should be considered when:
 - The system is deployed in highly regulated environments
@@ -372,5 +381,7 @@ These enhancements should be considered when:
 - Advanced security compliance is required
 - Distributed deployments need shared circuit breaker state
 - Complex error handling and recovery patterns are needed
+- Advanced observability and custom alerting workflows are required
+- Detailed error analysis and categorization are business-critical
 
 Last Updated: 2025-08-02

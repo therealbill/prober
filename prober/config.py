@@ -132,6 +132,18 @@ class ProberConfig(BaseSettings):
         validation_alias='BACKOFF_MAX_FAILURES'
     )
     
+    # Error categorization configuration
+    enable_error_categorization: bool = Field(
+        default=True,
+        description="Enable error type categorization in metrics and logs",
+        validation_alias='ENABLE_ERROR_CATEGORIZATION'
+    )
+    enable_enhanced_logging: bool = Field(
+        default=True,
+        description="Enable enhanced logging with additional context",
+        validation_alias='ENABLE_ENHANCED_LOGGING'
+    )
+    
     # Validation methods
     @field_validator('server_ip')
     @classmethod

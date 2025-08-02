@@ -40,6 +40,8 @@ def app_config():
         "backoff_max_interval": 3600,
         "backoff_multiplier": 2.0,
         "backoff_max_failures": 5,
+        "enable_error_categorization": True,
+        "enable_enhanced_logging": True,
     }
 
 
